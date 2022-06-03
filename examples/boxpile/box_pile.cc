@@ -41,9 +41,9 @@ DEFINE_string(contact_model, "hydroelastic",
 DEFINE_string(contact_surface_representation, "polygon",
               "Contact-surface representation for hydroelastics. "
               "Options are: 'triangle' or 'polygon'. Default is 'polygon'.");
-DEFINE_double(hydroelastic_modulus, 3.0e4,
+DEFINE_double(hydroelastic_modulus, 3.0e6,
               "Hydroelastic modulus of the ball, [Pa].");
-DEFINE_double(resolution_hint_factor, 0.3,
+DEFINE_double(resolution_hint_factor, 0.1,
               "This scaling factor, [unitless], multiplied by the radius of "
               "the ball gives the target edge length of the mesh of the ball "
               "on the surface of its hydroelastic representation. The smaller "
@@ -53,7 +53,7 @@ DEFINE_double(dissipation, 3.0,
 DEFINE_double(friction_coefficient, 0.3,
               "coefficient for both static and dynamic friction, [unitless], "
               "of the ball.");
-DEFINE_double(mbp_dt, 0.001,
+DEFINE_double(mbp_dt, 0.01,
               "The fixed time step period (in seconds) of discrete updates "
               "for the multibody plant modeled as a discrete system. "
               "Strictly positive.");
@@ -108,7 +108,7 @@ using drake::multibody::internal::CompliantContactManager;
 // using drake::multibody::internal::DiscreteContactPair;
 
 
-void AddBody(std::string name, double radius, double mass, double hydroelastic_modulus,
+void AddSphere(std::string name, double radius, double mass, double hydroelastic_modulus,
     double dissipation, const CoulombFriction<double>& surface_friction,
     double resolution_hint_factor, MultibodyPlant<double>* plant) {
 
@@ -136,6 +136,35 @@ void AddBody(std::string name, double radius, double mass, double hydroelastic_m
                                 Sphere(radius), "visual", orange);
 }
 
+// void AddBox(std::string name, double radius, double mass, double hydroelastic_modulus,
+//     double dissipation, const CoulombFriction<double>& surface_friction,
+//     double resolution_hint_factor, MultibodyPlant<double>* plant) {
+
+//     DRAKE_DEMAND(plant != nullptr);
+
+//     // Add the box. Let B be the box's frame (at its center). The ball's
+//     // center of mass Bcm is coincident with Bo.
+//     const Vector3<double> p_BoBcm = Vector3<double>::Zero();
+//     const RigidBody<double>& box = plant->AddRigidBody(
+//         name.c_str(), SpatialInertia<double>{mass, p_BoBcm, UnitInertia<double>::SolidBox(3*radius, 3*radius, radius)});
+
+//     // Set up mechanical properties of the box.
+//     geometry::ProximityProperties box_props;
+    
+//     // box_props.AddProperty(geometry::internal::kMaterialGroup,
+//     //                   "dissipation_time_constant",
+//     //                   0.05);
+//     AddContactMaterial(dissipation, {} /* point stiffness */, 
+//                     surface_friction, &box_props);
+//     AddCompliantHydroelasticProperties(radius * resolution_hint_factor, 
+//                                     hydroelastic_modulus, &box_props);
+//     plant->RegisterCollisionGeometry(box, RigidTransformd::Identity(), 
+//                                 Box(3*radius, 3*radius, radius), "collision", std::move(box_props));
+//     const Vector4<double> orange(1.0, 0.55, 0.0, 0.2);
+//     plant->RegisterVisualGeometry(box, RigidTransformd::Identity(),
+//                                 Box(3*radius, 3*radius, radius), "visual", orange);
+// }
+
 int do_main() {
     systems::DiagramBuilder<double> builder;
 
@@ -143,17 +172,21 @@ int do_main() {
     // We allow only discrete systems.
     DRAKE_DEMAND(FLAGS_mbp_dt > 0.0);
     config.time_step = FLAGS_mbp_dt;
-    config.penetration_allowance = 0.001;
+    config.penetration_allowance = 1;
     config.contact_model = FLAGS_contact_model;
     config.contact_surface_representation = FLAGS_contact_surface_representation;
     auto [plant, scene_graph] = AddMultibodyPlant(config, &builder);
 
+
     // Ball's parameters.
     const double radius = 0.05;   // m
     const double mass = 0.1;      // kg
-    for(int i=0; i<10; i++) {
+    const int gx = 4;
+    const int gy = 4;
+    const int gz = 6;
+    for(int i = 0; i < gx * gy * gz; i++) {
         std::string name = "Ball"+std::to_string(i);
-        AddBody( name, radius, mass, FLAGS_hydroelastic_modulus, FLAGS_dissipation,
+        AddSphere( name, radius, mass, FLAGS_hydroelastic_modulus, FLAGS_dissipation,
                 CoulombFriction<double>{
                     // static friction (unused in discrete systems)
                     FLAGS_friction_coefficient,
@@ -162,14 +195,22 @@ int do_main() {
                 FLAGS_resolution_hint_factor, &plant);
     }
 
-    // Add the floor. Assume the frame named "Floor" is in the SDFormat file.
+
+     // Add the floor. Assume the frame named "Floor" is in the SDFormat file.
     drake::multibody::Parser parser(&plant);
-    std::string floor_file_name =
-        FindResourceOrThrow("drake/examples/boxpile/models/floor.sdf");
-    parser.AddModelFromFile(floor_file_name);
-    plant.WeldFrames(plant.world_frame(), plant.GetFrameByName("Floor"),
+    
+    // std::string floor_file_name = FindResourceOrThrow("drake/examples/boxpile/models/floor.sdf");
+    // parser.AddModelFromFile(floor_file_name);
+    // plant.WeldFrames(plant.world_frame(), plant.GetFrameByName("Floor"),
+    //                 RigidTransformd::Identity());
+    // // End add floor
+
+    // Add bin
+    std::string bin_file_name = FindResourceOrThrow("drake/examples/boxpile/models/bin.sdf");
+    parser.AddModelFromFile(bin_file_name);
+    plant.WeldFrames(plant.world_frame(), plant.GetFrameByName("Bin"),
                     RigidTransformd::Identity());
-    // End add floor
+    // End add bin
 
     // Gravity acting in the -z direction.
     plant.mutable_gravity_field().set_gravity_vector(Vector3d{0, 0, -9.81});
@@ -184,7 +225,7 @@ int do_main() {
     CompliantContactManager<double>* manager = owned_manager.get();
     plant.SetDiscreteUpdateManager(std::move(owned_manager));
     drake::multibody::contact_solvers::internal::SapSolverParameters ssp;
-    //ssp.ls_max_iterations = 300;
+    ssp.ls_max_iterations = 300;
     manager->set_sap_solver_parameters(ssp);
 
     // //----------------------------------------
@@ -201,9 +242,19 @@ int do_main() {
     // Set the ball's initial pose.
     systems::Context<double>& plant_context = plant.GetMyMutableContextFromRoot(&simulator->get_mutable_context());
 
-    for(int i=0; i<10; i++) {
-        std::string name = "Ball"+std::to_string(i);
-        plant.SetFreeBodyPose(&plant_context, plant.GetBodyByName(name.c_str()), math::RigidTransformd{Vector3d(0.15, 0.15, 1+0.1*i)});
+    int idx = 0;
+    for(int i=0; i < gx; i++) {
+        for(int j=0; j < gy; j++){
+            for(int k=0; k < gz; k++){
+                std::string name = "Ball"+std::to_string(idx);
+                double x = -0.20 + 0.2*i;
+                double y = -0.20 + 0.2*j;
+                double z = 0.10 + 0.2*k;
+                std::cout<<x<<", "<< y <<", "<< z<<std::endl;
+                plant.SetFreeBodyPose(&plant_context, plant.GetBodyByName(name.c_str()), math::RigidTransformd{Vector3d(x, y, z)});
+                idx++;
+            }
+        }
     }
 
     simulator->set_publish_every_time_step(true);
