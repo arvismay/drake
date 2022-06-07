@@ -1,5 +1,6 @@
 #include <gflags/gflags.h>
-
+#include <iostream>
+#include <fstream>
 #include "drake/common/drake_assert.h"
 #include "drake/common/find_resource.h"
 #include "drake/common/text_logging.h"
@@ -33,7 +34,7 @@ DEFINE_double(target_realtime_rate, 1.0,
 DEFINE_double(simulation_time, 10,
               "Desired duration of the simulation in seconds.");
 // See MultibodyPlantConfig for the valid strings of contact_model.
-DEFINE_string(contact_model, "hydroelastic",
+DEFINE_string(contact_model, "point",
               "Contact model. Options are: 'point', 'hydroelastic', "
               "'hydroelastic_with_fallback'.");
 // See MultibodyPlantConfig for the valid strings of contact surface
@@ -73,9 +74,9 @@ DEFINE_double(wz, 0.0,
               "Ball's initial angular velocity in the z-axis in degrees/s.");
 
 // Ball's initial pose.
-DEFINE_double(z0, 0.15, "Ball's initial position in the z-axis.");
-DEFINE_double(x0, 0.0, "Ball's initial position in the x-axis.");
-DEFINE_double(y0, 0.0, "Ball's initial position in the x-axis.");
+DEFINE_int32(gx, 2, "Layers of objects in x.");
+DEFINE_int32(gy, 2, "Layers of objects in y.");
+DEFINE_int32(gz, 2, "Layers of objects in z.");
 
 namespace drake {
 namespace examples {
@@ -181,10 +182,7 @@ int do_main() {
     // Ball's parameters.
     const double radius = 0.05;   // m
     const double mass = 0.1;      // kg
-    const int gx = 4;
-    const int gy = 4;
-    const int gz = 6;
-    for(int i = 0; i < gx * gy * gz; i++) {
+    for(int i = 0; i < FLAGS_gx * FLAGS_gy * FLAGS_gz; i++) {
         std::string name = "Ball"+std::to_string(i);
         AddSphere( name, radius, mass, FLAGS_hydroelastic_modulus, FLAGS_dissipation,
                 CoulombFriction<double>{
@@ -243,12 +241,12 @@ int do_main() {
     systems::Context<double>& plant_context = plant.GetMyMutableContextFromRoot(&simulator->get_mutable_context());
 
     int idx = 0;
-    for(int i=0; i < gx; i++) {
-        for(int j=0; j < gy; j++){
-            for(int k=0; k < gz; k++){
+    for(int i=0; i < FLAGS_gx; i++) {
+        for(int j=0; j < FLAGS_gy; j++){
+            for(int k=0; k < FLAGS_gz; k++){
                 std::string name = "Ball"+std::to_string(idx);
-                double x = -0.20 + 0.2*i;
-                double y = -0.20 + 0.2*j;
+                double x = -0.30 + 0.2*i;
+                double y = -0.30 + 0.2*j;
                 double z = 0.10 + 0.2*k;
                 std::cout<<x<<", "<< y <<", "<< z<<std::endl;
                 plant.SetFreeBodyPose(&plant_context, plant.GetBodyByName(name.c_str()), math::RigidTransformd{Vector3d(x, y, z)});
@@ -258,10 +256,23 @@ int do_main() {
     }
 
     simulator->set_publish_every_time_step(true);
-    simulator->set_target_realtime_rate(FLAGS_target_realtime_rate);
+    //simulator->set_target_realtime_rate(FLAGS_target_realtime_rate);
     simulator->Initialize();
     simulator->AdvanceTo(FLAGS_simulation_time);
     systems::PrintSimulatorStatistics(*simulator);
+    double rtr = simulator->get_actual_realtime_rate();
+    std::cout<<"Actual rtr: "<<rtr<<std::endl;
+
+    std::ofstream myfile;
+    std::string fname = "/Users/modivism/Desktop/benchmark_data/Cube-"+std::to_string(FLAGS_gx)+"-"+std::to_string(FLAGS_gy)+"-"+std::to_string(FLAGS_gz)+"-"+FLAGS_contact_model+"-"+std::to_string(FLAGS_resolution_hint_factor)+"-"+std::to_string(FLAGS_hydroelastic_modulus)+"-"+std::to_string(FLAGS_mbp_dt)+".txt";
+    myfile.open (fname);
+    if (myfile.is_open()){
+    myfile << std::to_string(rtr);
+    myfile.close();
+    }
+    else{
+        std::cout<<"uh oh"<<std::endl;
+    }
     return 0;
 }
 
