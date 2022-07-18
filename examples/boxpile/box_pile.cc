@@ -34,7 +34,7 @@ DEFINE_double(target_realtime_rate, 1.0,
 DEFINE_double(simulation_time, 10,
               "Desired duration of the simulation in seconds.");
 // See MultibodyPlantConfig for the valid strings of contact_model.
-DEFINE_string(contact_model, "point",
+DEFINE_string(contact_model, "hydroelastic",
               "Contact model. Options are: 'point', 'hydroelastic', "
               "'hydroelastic_with_fallback'.");
 // See MultibodyPlantConfig for the valid strings of contact surface
@@ -54,7 +54,7 @@ DEFINE_double(dissipation, 3.0,
 DEFINE_double(friction_coefficient, 0.3,
               "coefficient for both static and dynamic friction, [unitless], "
               "of the ball.");
-DEFINE_double(mbp_dt, 0.01,
+DEFINE_double(mbp_dt, 0.02,
               "The fixed time step period (in seconds) of discrete updates "
               "for the multibody plant modeled as a discrete system. "
               "Strictly positive.");
@@ -89,6 +89,7 @@ using geometry::AddCompliantHydroelasticProperties;
 using geometry::ProximityProperties;
 using geometry::Sphere;
 using geometry::Box;
+using geometry::Cylinder;
 using multibody::CoulombFriction;
 using multibody::MultibodyPlant;
 using multibody::RigidBody;
@@ -109,35 +110,64 @@ using drake::multibody::internal::CompliantContactManager;
 // using drake::multibody::internal::DiscreteContactPair;
 
 
-void AddSphere(std::string name, double radius, double mass, double hydroelastic_modulus,
+// void AddSphere(std::string name, double radius, double mass, double hydroelastic_modulus,
+//     double dissipation, const CoulombFriction<double>& surface_friction,
+//     double resolution_hint_factor, MultibodyPlant<double>* plant) {
+
+//     DRAKE_DEMAND(plant != nullptr);
+
+//     // Add the ball. Let B be the ball's frame (at its center). The ball's
+//     // center of mass Bcm is coincident with Bo.
+//     const Vector3<double> p_BoBcm = Vector3<double>::Zero();
+//     const RigidBody<double>& ball = plant->AddRigidBody(
+//         name.c_str(), SpatialInertia<double>{mass, p_BoBcm, UnitInertia<double>::SolidSphere(radius)});
+
+//     // Set up mechanical properties of the ball.
+//     geometry::ProximityProperties ball_props;
+//     // ball_props.AddProperty(geometry::internal::kMaterialGroup,
+//     //                   "dissipation_time_constant",
+//     //                   0.05);
+//     AddContactMaterial(dissipation, {} /* point stiffness */, 
+//                     surface_friction, &ball_props);
+//     AddCompliantHydroelasticProperties(radius * resolution_hint_factor, 
+//                                     hydroelastic_modulus, &ball_props);
+//     plant->RegisterCollisionGeometry(ball, RigidTransformd::Identity(), 
+//                                 Sphere(radius), "collision", std::move(ball_props));
+//     const Vector4<double> orange(1.0, 0.55, 0.0, 0.2);
+//     plant->RegisterVisualGeometry(ball, RigidTransformd::Identity(),
+//                                 Sphere(radius), "visual", orange);
+// }
+
+void AddBox(std::string name, double radius, double mass, double hydroelastic_modulus,
     double dissipation, const CoulombFriction<double>& surface_friction,
     double resolution_hint_factor, MultibodyPlant<double>* plant) {
 
     DRAKE_DEMAND(plant != nullptr);
 
-    // Add the ball. Let B be the ball's frame (at its center). The ball's
+    // Add the box. Let B be the box's frame (at its center). The ball's
     // center of mass Bcm is coincident with Bo.
     const Vector3<double> p_BoBcm = Vector3<double>::Zero();
-    const RigidBody<double>& ball = plant->AddRigidBody(
-        name.c_str(), SpatialInertia<double>{mass, p_BoBcm, UnitInertia<double>::SolidSphere(radius)});
+    const RigidBody<double>& box = plant->AddRigidBody(
+        name.c_str(), SpatialInertia<double>{mass, p_BoBcm, UnitInertia<double>::SolidBox(3*radius, 3*radius, radius)});
 
-    // Set up mechanical properties of the ball.
-    geometry::ProximityProperties ball_props;
-    // ball_props.AddProperty(geometry::internal::kMaterialGroup,
+    // Set up mechanical properties of the box.
+    geometry::ProximityProperties box_props;
+    
+    // box_props.AddProperty(geometry::internal::kMaterialGroup,
     //                   "dissipation_time_constant",
     //                   0.05);
     AddContactMaterial(dissipation, {} /* point stiffness */, 
-                    surface_friction, &ball_props);
+                    surface_friction, &box_props);
     AddCompliantHydroelasticProperties(radius * resolution_hint_factor, 
-                                    hydroelastic_modulus, &ball_props);
-    plant->RegisterCollisionGeometry(ball, RigidTransformd::Identity(), 
-                                Sphere(radius), "collision", std::move(ball_props));
+                                    hydroelastic_modulus, &box_props);
+    plant->RegisterCollisionGeometry(box, RigidTransformd::Identity(), 
+                                Box(3*radius, 3*radius, radius), "collision", std::move(box_props));
     const Vector4<double> orange(1.0, 0.55, 0.0, 0.2);
-    plant->RegisterVisualGeometry(ball, RigidTransformd::Identity(),
-                                Sphere(radius), "visual", orange);
+    plant->RegisterVisualGeometry(box, RigidTransformd::Identity(),
+                                Box(3*radius, 3*radius, radius), "visual", orange);
 }
 
-// void AddBox(std::string name, double radius, double mass, double hydroelastic_modulus,
+// void AddCylinder(std::string name, double radius, double mass, double hydroelastic_modulus,
 //     double dissipation, const CoulombFriction<double>& surface_friction,
 //     double resolution_hint_factor, MultibodyPlant<double>* plant) {
 
@@ -147,7 +177,7 @@ void AddSphere(std::string name, double radius, double mass, double hydroelastic
 //     // center of mass Bcm is coincident with Bo.
 //     const Vector3<double> p_BoBcm = Vector3<double>::Zero();
 //     const RigidBody<double>& box = plant->AddRigidBody(
-//         name.c_str(), SpatialInertia<double>{mass, p_BoBcm, UnitInertia<double>::SolidBox(3*radius, 3*radius, radius)});
+//         name.c_str(), SpatialInertia<double>{mass, p_BoBcm, UnitInertia<double>::SolidCylinder(radius, 3*radius)});
 
 //     // Set up mechanical properties of the box.
 //     geometry::ProximityProperties box_props;
@@ -160,10 +190,10 @@ void AddSphere(std::string name, double radius, double mass, double hydroelastic
 //     AddCompliantHydroelasticProperties(radius * resolution_hint_factor, 
 //                                     hydroelastic_modulus, &box_props);
 //     plant->RegisterCollisionGeometry(box, RigidTransformd::Identity(), 
-//                                 Box(3*radius, 3*radius, radius), "collision", std::move(box_props));
+//                                 Cylinder(radius, 3*radius), "collision", std::move(box_props));
 //     const Vector4<double> orange(1.0, 0.55, 0.0, 0.2);
 //     plant->RegisterVisualGeometry(box, RigidTransformd::Identity(),
-//                                 Box(3*radius, 3*radius, radius), "visual", orange);
+//                                 Cylinder(radius, 3*radius), "visual", orange);
 // }
 
 int do_main() {
@@ -177,25 +207,45 @@ int do_main() {
     config.contact_model = FLAGS_contact_model;
     config.contact_surface_representation = FLAGS_contact_surface_representation;
     auto [plant, scene_graph] = AddMultibodyPlant(config, &builder);
-
+    // Add the floor. Assume the frame named "Floor" is in the SDFormat file.
+    drake::multibody::Parser parser(&plant);
 
     // Ball's parameters.
     const double radius = 0.05;   // m
     const double mass = 0.1;      // kg
-    for(int i = 0; i < FLAGS_gx * FLAGS_gy * FLAGS_gz; i++) {
-        std::string name = "Ball"+std::to_string(i);
-        AddSphere( name, radius, mass, FLAGS_hydroelastic_modulus, FLAGS_dissipation,
+    int bodyidx = 0;
+    for(int i = 0; i < FLAGS_gx * FLAGS_gy; i++) {
+        for(int j=0; j<FLAGS_gz; j++) {
+            std::string name = "Obj"+std::to_string(bodyidx);
+                
+                AddBox( name, radius, mass, FLAGS_hydroelastic_modulus, FLAGS_dissipation,
                 CoulombFriction<double>{
                     // static friction (unused in discrete systems)
                     FLAGS_friction_coefficient,
                     // dynamic friction
                     FLAGS_friction_coefficient},
                 FLAGS_resolution_hint_factor, &plant);
+
+                // AddCylinder( name, radius, mass, FLAGS_hydroelastic_modulus, FLAGS_dissipation,
+                // CoulombFriction<double>{
+                //     // static friction (unused in discrete systems)
+                //     FLAGS_friction_coefficient,
+                //     // dynamic friction
+                //     FLAGS_friction_coefficient},
+                // FLAGS_resolution_hint_factor, &plant);
+          
+                // AddSphere( name, radius, mass, FLAGS_hydroelastic_modulus, FLAGS_dissipation,
+                // CoulombFriction<double>{
+                //     // static friction (unused in discrete systems)
+                //     FLAGS_friction_coefficient,
+                //     // dynamic friction
+                //     FLAGS_friction_coefficient},
+                // FLAGS_resolution_hint_factor, &plant);
+            
+            bodyidx ++;
+        }
     }
 
-
-     // Add the floor. Assume the frame named "Floor" is in the SDFormat file.
-    drake::multibody::Parser parser(&plant);
     
     // std::string floor_file_name = FindResourceOrThrow("drake/examples/boxpile/models/floor.sdf");
     // parser.AddModelFromFile(floor_file_name);
@@ -244,10 +294,10 @@ int do_main() {
     for(int i=0; i < FLAGS_gx; i++) {
         for(int j=0; j < FLAGS_gy; j++){
             for(int k=0; k < FLAGS_gz; k++){
-                std::string name = "Ball"+std::to_string(idx);
-                double x = -0.30 + 0.2*i;
-                double y = -0.30 + 0.2*j;
-                double z = 0.10 + 0.2*k;
+                std::string name = "Obj"+std::to_string(idx);
+                double x = -0.20 + 0.2*i;
+                double y = -0.20 + 0.2*j;
+                double z = 0.10 + 0.35*k;
                 std::cout<<x<<", "<< y <<", "<< z<<std::endl;
                 plant.SetFreeBodyPose(&plant_context, plant.GetBodyByName(name.c_str()), math::RigidTransformd{Vector3d(x, y, z)});
                 idx++;
@@ -264,7 +314,7 @@ int do_main() {
     std::cout<<"Actual rtr: "<<rtr<<std::endl;
 
     std::ofstream myfile;
-    std::string fname = "/Users/modivism/Desktop/benchmark_data/Cube-"+std::to_string(FLAGS_gx)+"-"+std::to_string(FLAGS_gy)+"-"+std::to_string(FLAGS_gz)+"-"+FLAGS_contact_model+"-"+std::to_string(FLAGS_resolution_hint_factor)+"-"+std::to_string(FLAGS_hydroelastic_modulus)+"-"+std::to_string(FLAGS_mbp_dt)+".txt";
+    std::string fname = "/Users/modivism/Desktop/benchmark_data/box/"+FLAGS_contact_model+"/Obj-"+std::to_string(FLAGS_gx)+"-"+std::to_string(FLAGS_gy)+"-"+std::to_string(FLAGS_gz)+"-"+FLAGS_contact_model+"-"+std::to_string(FLAGS_resolution_hint_factor)+"-"+std::to_string(FLAGS_hydroelastic_modulus)+"-"+std::to_string(FLAGS_mbp_dt)+".txt";
     myfile.open (fname);
     if (myfile.is_open()){
     myfile << std::to_string(rtr);

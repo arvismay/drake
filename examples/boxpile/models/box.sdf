@@ -1,9 +1,9 @@
 <?xml version='1.0'?>
 <sdf version="1.7">
   <model name="box">
-    <pose>0 0 0.5 0 0 0</pose>
-    <static>true</static>
-    <link name="link">
+    <pose>0 0.0 1.5 0 0 0</pose>
+    <static>false</static>
+    <link name="Box1">
       <inertial>
         <mass>1.0</mass>
         <inertia> <!-- inertias are tricky to compute -->
@@ -19,23 +19,110 @@
       <collision name="collision">
         <geometry>
           <box>
-            <size>1 1 1</size>
+            <size>0.15 0.15 0.05</size>
           </box>
         </geometry>
+        <drake:proximity_properties>
+          <drake:compliant_hydroelastic/>
+          <drake:hydroelastic_modulus> 3.0e6 </drake:hydroelastic_modulus>
+          <drake:mesh_resolution_hint> 1 </drake:mesh_resolution_hint>
+          <drake:mu_dynamic> 0.3 </drake:mu_dynamic>
+          <drake:mu_static> 0.3 </drake:mu_static>
+          <drake:hunt_crossley_dissipation>
+            3.0
+          </drake:hunt_crossley_dissipation>
+        </drake:proximity_properties>
       </collision>
       <visual name="visual">
         <geometry>
           <box>
-            <size>1 1 1</size>
+            <size>0.15 0.15 0.05</size>
+          </box>
+        </geometry>
+      </visual>
+    </link>
+  </model>
+  <model name="box1">
+    <pose>0 0.0 3 0 0 0</pose>
+    <static>false</static>
+    <link name="Box1">
+      <inertial>
+        <mass>1.0</mass>
+        <inertia> <!-- inertias are tricky to compute -->
+          <!-- http://gazebosim.org/tutorials?tut=inertia&cat=build_robot -->
+          <ixx>0.083</ixx>       <!-- for a box: ixx = 0.083 * mass * (y*y + z*z) -->
+          <ixy>0.0</ixy>         <!-- for a box: ixy = 0 -->
+          <ixz>0.0</ixz>         <!-- for a box: ixz = 0 -->
+          <iyy>0.083</iyy>       <!-- for a box: iyy = 0.083 * mass * (x*x + z*z) -->
+          <iyz>0.0</iyz>         <!-- for a box: iyz = 0 -->
+          <izz>0.083</izz>       <!-- for a box: izz = 0.083 * mass * (x*x + y*y) -->
+        </inertia>
+      </inertial>
+      <collision name="collision">
+        <geometry>
+          <box>
+            <size>0.15 0.15 0.05</size>
           </box>
         </geometry>
         <drake:proximity_properties>
-          <drake:mesh_resolution_hint>0.005</drake:mesh_resolution_hint>
           <drake:compliant_hydroelastic/>
-          <drake:hydroelastic_modulus>1e8</drake:hydroelastic_modulus>
-          <drake:hunt_crossley_dissipation>5</drake:hunt_crossley_dissipation>
-          <drake:mu_dynamic>1.0</drake:mu_dynamic>
+          <drake:hydroelastic_modulus> 3.0e6 </drake:hydroelastic_modulus>
+          <drake:mesh_resolution_hint> 1 </drake:mesh_resolution_hint>
+          <drake:mu_dynamic> 0.3 </drake:mu_dynamic>
+          <drake:mu_static> 0.3 </drake:mu_static>
+          <drake:hunt_crossley_dissipation>
+            3.0
+          </drake:hunt_crossley_dissipation>
         </drake:proximity_properties>
+      </collision>
+      <visual name="visual">
+        <geometry>
+          <box>
+            <size>0.15 0.15 0.05</size>
+          </box>
+        </geometry>
+      </visual>
+    </link>
+  </model>
+  <model name="box2">
+    <pose>0 0.0 4.5 0 0 0</pose>
+    <static>false</static>
+    <link name="Box1">
+      <inertial>
+        <mass>1.0</mass>
+        <inertia> <!-- inertias are tricky to compute -->
+          <!-- http://gazebosim.org/tutorials?tut=inertia&cat=build_robot -->
+          <ixx>0.083</ixx>       <!-- for a box: ixx = 0.083 * mass * (y*y + z*z) -->
+          <ixy>0.0</ixy>         <!-- for a box: ixy = 0 -->
+          <ixz>0.0</ixz>         <!-- for a box: ixz = 0 -->
+          <iyy>0.083</iyy>       <!-- for a box: iyy = 0.083 * mass * (x*x + z*z) -->
+          <iyz>0.0</iyz>         <!-- for a box: iyz = 0 -->
+          <izz>0.083</izz>       <!-- for a box: izz = 0.083 * mass * (x*x + y*y) -->
+        </inertia>
+      </inertial>
+      <collision name="collision">
+        <geometry>
+          <box>
+            <size>0.15 0.15 0.05</size>
+          </box>
+        </geometry>
+        <drake:proximity_properties>
+          <drake:compliant_hydroelastic/>
+          <drake:hydroelastic_modulus> 3.0e6 </drake:hydroelastic_modulus>
+          <drake:mesh_resolution_hint> 1 </drake:mesh_resolution_hint>
+          <drake:mu_dynamic> 0.3 </drake:mu_dynamic>
+          <drake:mu_static> 0.3 </drake:mu_static>
+          <drake:hunt_crossley_dissipation>
+            3.0
+          </drake:hunt_crossley_dissipation>
+        </drake:proximity_properties>
+      </collision>
+      <visual name="visual">
+        <geometry>
+          <box>
+            <size>0.15 0.15 0.05</size>
+          </box>
+        </geometry>
       </visual>
     </link>
   </model>
