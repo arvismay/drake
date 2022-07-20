@@ -15,32 +15,6 @@ load("//tools/skylark:test_tags.bzl", "vtk_test_tags")
 package(default_visibility = ["//visibility:private"])
 
 drake_cc_library(
-    name = "internal_render_client",
-    srcs = [
-        "internal_render_client.cc",
-        "render_gltf_client_params.cc",
-    ],
-    hdrs = [
-        "internal_render_client.h",
-        "render_gltf_client_params.h",
-    ],
-    internal = True,
-    visibility = ["//visibility:private"],
-    deps = [
-        "//common:filesystem",
-        "//common:nice_type_name",
-        "//common:temp_directory",
-        "//geometry/render:render_camera",
-        "//geometry/render:render_engine",
-        "//geometry/render_gltf_client:internal_http_service",
-        "//geometry/render_gltf_client:internal_http_service_curl",
-        "//systems/sensors:image",
-        "@picosha2",
-        "@vtk//:vtkIOImage",
-    ],
-)
-
-drake_cc_library(
     name = "internal_render_engine_gltf_client",
     srcs = [
         "factory.cc",
@@ -55,9 +29,9 @@ drake_cc_library(
     internal = True,
     visibility = ["//visibility:private"],
     deps = [
-        ":internal_render_client",
         "//common:filesystem",
         "//geometry/render:render_camera",
+        "//geometry/render_gltf_client:internal_render_client",
         "//geometry/render_vtk:internal_render_engine_vtk",
         "//systems/sensors:image",
         "@vtk//:vtkIOExport",
@@ -66,46 +40,11 @@ drake_cc_library(
 
 # === test/ ===
 
-drake_cc_library(
-    name = "internal_test_png",
-    testonly = 1,
-    srcs = ["test/internal_test_png.cc"],
-    hdrs = ["test/internal_test_png.h"],
-    deps = [
-        "//common:unused",
-        "//systems/sensors:image",
-        "@gtest//:without_main",
-        "@libpng",
-    ],
-)
-
-drake_cc_library(
-    name = "internal_test_tiff",
-    testonly = 1,
-    srcs = ["test/internal_test_tiff.cc"],
-    hdrs = ["test/internal_test_tiff.h"],
-    deps = [
-        "//systems/sensors:image",
-        "@gtest//:without_main",
-        "@libtiff",
-    ],
-)
-
-drake_cc_googletest(
-    name = "internal_render_client_test",
-    data = ["//geometry/render:test_models"],
-    deps = [
-        ":internal_render_client",
-        ":internal_test_png",
-        ":internal_test_tiff",
-        "//common:find_resource",
-        "//common/test_utilities:expect_no_throw",
-        "//common/test_utilities:expect_throws_message",
-    ],
-)
-
 drake_cc_googletest(
     name = "internal_render_engine_gltf_client_test",
+    data = [
+        "//geometry/render_gltf_client:test_resources",
+    ],
     # TODO(svenevs): Found leakage isolated to
     # RenderEngineGltfClient::DoRender*Image calls indirectly calling
     # RenderEngineVtk::PerformUpdate().  Mark it as skipped now, and will
@@ -122,11 +61,10 @@ drake_cc_googletest(
     tags = vtk_test_tags(),
     deps = [
         ":internal_render_engine_gltf_client",
-        ":internal_test_png",
-        ":internal_test_tiff",
         "//common:filesystem",
         "//common/test_utilities:expect_no_throw",
         "//common/test_utilities:expect_throws_message",
+        "//geometry/render_gltf_client:internal_sample_image_data",
     ],
 )
 

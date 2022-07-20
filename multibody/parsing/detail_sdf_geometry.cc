@@ -7,13 +7,13 @@
 #include <string>
 #include <utility>
 
-#include <sdf/Box.hh>
-#include <sdf/Capsule.hh>
-#include <sdf/Cylinder.hh>
-#include <sdf/Element.hh>
-#include <sdf/Ellipsoid.hh>
-#include <sdf/Plane.hh>
-#include <sdf/Sphere.hh>
+#include <drake_vendor/sdf/Box.hh>
+#include <drake_vendor/sdf/Capsule.hh>
+#include <drake_vendor/sdf/Cylinder.hh>
+#include <drake_vendor/sdf/Element.hh>
+#include <drake_vendor/sdf/Ellipsoid.hh>
+#include <drake_vendor/sdf/Plane.hh>
+#include <drake_vendor/sdf/Sphere.hh>
 
 #include "drake/geometry/geometry_instance.h"
 #include "drake/geometry/proximity_properties.h"
@@ -485,9 +485,12 @@ ProximityProperties MakeProximityPropertiesForCollision(
       "drake:mesh_resolution_hint",
       "drake:hydroelastic_modulus",
       "drake:hunt_crossley_dissipation",
+      "drake:relaxation_time",
       "drake:point_contact_stiffness",
-      "drake::mu_dynamic",
-      "drake::mu_static"};
+      "drake:mu_dynamic",
+      "drake:mu_static"};
+    CheckSupportedElements(diagnostic, drake_element,
+                           supported_proximity_elements);
 
     auto read_double =
         [drake_element](const char* element_name) -> std::optional<double> {

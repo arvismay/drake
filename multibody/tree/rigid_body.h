@@ -93,10 +93,13 @@ class RigidBody : public Body<T> {
   /// state associated with flexible deformations.
   int get_num_flexible_velocities() const final { return 0; }
 
-  /// Returns the default value of this body's mass.  This value is initially
-  /// supplied at construction when specifying this body's SpatialInertia.
-  /// @returns This body's default mass.
-  double default_mass() const {
+  /// Returns this rigid body's default mass, which is initially supplied at
+  /// construction when specifying this rigid body's SpatialInertia.
+  /// @note In general, a rigid body's mass can be a constant property stored in
+  /// this rigid body's %SpatialInertia or a parameter that is stored in a
+  /// Context. The default constant mass value is used to initialize the mass
+  /// parameter in the Context.
+  double default_mass() const final {
     return default_spatial_inertia_.get_mass();
   }
 

@@ -157,9 +157,11 @@ class SpheresStack : public ::testing::Test {
     // Hydroelastic modulus. If nullopt, this property is not added to the
     // model.
     std::optional<double> hydro_modulus;
-    // Dissipation time constant τ is used to setup the linear dissipation model
+    // Relaxation time constant τ is used to setup the linear dissipation model
     // where dissipation is c = τ⋅k, with k the point pair stiffness.
-    double dissipation_time_constant{nan()};
+    // If nullopt, no dissipation is specified, i.e. the corresponding
+    // ProximityProperties will not have dissipation defined.
+    std::optional<double> relaxation_time;
     // Coefficient of dynamic friction.
     double friction_coefficient{nan()};
   };
@@ -323,6 +325,28 @@ class SpheresStack : public ::testing::Test {
         EvalContactSurfaces(*plant_context_);
     ASSERT_EQ(surfaces.size(), 1u);
     const int num_hydro_pairs = surfaces[0].num_faces();
+
+    // In these tests ContactParameters::relaxation_time = nullopt
+    // indicates we want to build a model for which we forgot to specify the
+    // relaxation time in ProximityProperties. Here we verify this is not
+    // required by the manager, since the manager specifies a default value.
+    if (!sphere1_point_params.relaxation_time.has_value() ||
+        !sphere2_point_params.relaxation_time.has_value()) {
+      EXPECT_NO_THROW(EvalDiscreteContactPairs(*plant_context_));
+      return;
+    }
+
+    // Verify that the manager throws an exception if a negative relaxation
+    // times is provided.
+    if (*sphere1_point_params.relaxation_time < 0 ||
+        *sphere2_point_params.relaxation_time < 0) {
+      DRAKE_EXPECT_THROWS_MESSAGE(EvalDiscreteContactPairs(*plant_context_),
+                                  "Relaxation time must be non-negative "
+                                  "and relaxation_time = .* was "
+                                  "provided. For geometry .* on body .*.");
+      return;
+    }
+
     const std::vector<DiscreteContactPair<double>>& pairs =
         EvalDiscreteContactPairs(*plant_context_);
     EXPECT_EQ(pairs.size(), num_point_pairs + num_hydro_pairs);
@@ -364,10 +388,10 @@ class SpheresStack : public ::testing::Test {
       EXPECT_TRUE(CompareMatrices(point_pair.nhat_BA_W, normal_expected));
 
       // Verify dissipation.
-      const double tau1 = sphere1_contact_params.dissipation_time_constant;
+      const double tau1 = *sphere1_contact_params.relaxation_time;
       const double tau2 = i == 0
-                              ? sphere2_contact_params.dissipation_time_constant
-                              : hard_hydro_contact.dissipation_time_constant;
+                              ? *sphere2_contact_params.relaxation_time
+                              : *hard_hydro_contact.relaxation_time;
       const double tau_expected = tau1 + tau2;
       EXPECT_NEAR(point_pair.dissipation_time_scale, tau_expected,
                   kEps * tau_expected);
@@ -523,6 +547,7 @@ class SpheresStack : public ::testing::Test {
   }
 
   // Utility to make ProximityProperties from ContactParameters.
+  // params.relaxation_time is ignored if nullopt.
   static ProximityProperties MakeProximityProperties(
       const ContactParameters& params) {
     DRAKE_DEMAND(params.point_stiffness || params.hydro_modulus);
@@ -545,9 +570,12 @@ class SpheresStack : public ::testing::Test {
         CoulombFriction<double>(params.friction_coefficient,
                                 params.friction_coefficient),
         &properties);
-    properties.AddProperty(geometry::internal::kMaterialGroup,
-                           "dissipation_time_constant",
-                           params.dissipation_time_constant);
+
+    if (params.relaxation_time.has_value()) {
+      properties.AddProperty(geometry::internal::kMaterialGroup,
+                             "relaxation_time",
+                             *params.relaxation_time);
+    }
     return properties;
   }
 };
@@ -556,6 +584,37 @@ class SpheresStack : public ::testing::Test {
 // different combinations of compliance.
 TEST_F(SpheresStack, VerifyDiscreteContactPairs) {
   ContactParameters soft_point_contact{1.0e3, std::nullopt, 0.01, 1.0};
+  ContactParameters hard_point_contact{1.0e40, std::nullopt, 0.0, 1.0};
+
+  // Hard sphere 1/soft sphere 2.
+  VerifyDiscreteContactPairs(hard_point_contact, soft_point_contact);
+
+  // Equally soft spheres.
+  VerifyDiscreteContactPairs(soft_point_contact, soft_point_contact);
+
+  // Soft sphere 1/hard sphere 2.
+  VerifyDiscreteContactPairs(soft_point_contact, hard_point_contact);
+}
+
+TEST_F(SpheresStack, RelaxationTimeIsNotRequired) {
+  ContactParameters soft_point_contact{
+      1.0e3, std::nullopt,
+      std::nullopt /* Dissipation not included in ProximityProperties */, 1.0};
+  ContactParameters hard_point_contact{1.0e40, std::nullopt, 0.0, 1.0};
+
+  // Hard sphere 1/soft sphere 2.
+  VerifyDiscreteContactPairs(hard_point_contact, soft_point_contact);
+
+  // Equally soft spheres.
+  VerifyDiscreteContactPairs(soft_point_contact, soft_point_contact);
+
+  // Soft sphere 1/hard sphere 2.
+  VerifyDiscreteContactPairs(soft_point_contact, hard_point_contact);
+}
+
+TEST_F(SpheresStack, RelaxationTimeMustBePositive) {
+  ContactParameters soft_point_contact{
+      1.0e3, std::nullopt, -1.0 /* Negative dissipation timescale */, 1.0};
   ContactParameters hard_point_contact{1.0e40, std::nullopt, 0.0, 1.0};
 
   // Hard sphere 1/soft sphere 2.
@@ -885,8 +944,7 @@ TEST_F(SpheresStack, DoCalcContactSolverResults) {
   SetupRigidGroundCompliantSphereAndNonHydroSphere();
   // N.B. We make sure both the manager and the manual invocations of the SAP
   // solver in this test both use the same set of parameters.
-  SapSolverParameters params;
-  params.ls_alpha_max = 1.0 / params.ls_rho;
+  SapSolverParameters params;  // Default set of parameters.
   contact_manager_->set_sap_solver_parameters(params);
   ContactSolverResults<double> contact_results;
   contact_manager_->CalcContactSolverResults(*plant_context_, &contact_results);
@@ -1361,6 +1419,31 @@ TEST_F(KukaIiwaArmTests, CalcFreeMotionVelocities) {
                               MatrixCompareType::relative));
 }
 
+// This unit test simply verifies that the manager is loading acceleration
+// kinematics with the proper results. The correctness of the computations we
+// rely on in this test (computation of accelerations) are tested elsewhere.
+TEST_F(KukaIiwaArmTests, CalcAccelerationKinematicsCache) {
+  const VectorXd& v0 = plant_.GetVelocities(*context_);
+  ContactSolverResults<double> contact_results;
+  manager_->CalcContactSolverResults(*context_, &contact_results);
+  const VectorXd a_expected =
+      (contact_results.v_next - v0) / plant_.time_step();
+  std::vector<SpatialAcceleration<double>> A_WB_expected(plant_.num_bodies());
+  plant_.CalcSpatialAccelerationsFromVdot(*context_, a_expected,
+                                          &A_WB_expected);
+
+  // Verify CompliantContactManager loads the acceleration kinematics with the
+  // proper results.
+  AccelerationKinematicsCache<double> ac(
+      CompliantContactManagerTest::topology(*manager_));
+  manager_->CalcAccelerationKinematicsCache(*context_, &ac);
+  EXPECT_TRUE(CompareMatrices(ac.get_vdot(), a_expected));
+  for (BodyIndex b(0); b < plant_.num_bodies(); ++b) {
+    const auto& body = plant_.get_body(b);
+    EXPECT_TRUE(ac.get_A_WB(body.node_index()).IsApprox(A_WB_expected[b]));
+  }
+}
+
 TEST_F(KukaIiwaArmTests, LimitConstraints) {
   // Arbitrary selection of how positions and velocities are initialized.
   std::vector<InitializePositionAt> limits_specification(
@@ -1585,8 +1668,8 @@ class MultiDofJointWithLimits final : public Joint<T> {
 GTEST_TEST(CompliantContactManager, ThrowForUnsupportedJoints) {
   MultibodyPlant<double> plant(1.0e-3);
   // To avoid unnecessary warnings/errors, use a non-zero spatial inertia.
-  const RigidBody<double>& body =
-      plant.AddRigidBody("DummyBody", SpatialInertia<double>::MakeTestCube());
+  const RigidBody<double>& body = plant.AddRigidBody("DummyBody",
+      SpatialInertia<double>::MakeUnitary());
   plant.AddJoint(std::make_unique<MultiDofJointWithLimits<double>>(
       plant.world_frame(), body.body_frame(), -1.0, 2.0));
   plant.Finalize();
@@ -1614,8 +1697,8 @@ GTEST_TEST(CompliantContactManager,
            VerifyMultiDofJointsWithoutLimitsAreSupported) {
   MultibodyPlant<double> plant(1.0e-3);
   // To avoid unnecessary warnings/errors, use a non-zero spatial inertia.
-  const RigidBody<double>& body =
-      plant.AddRigidBody("DummyBody", SpatialInertia<double>::MakeTestCube());
+  const RigidBody<double>& body = plant.AddRigidBody("DummyBody",
+      SpatialInertia<double>::MakeUnitary());
   const double kInf = std::numeric_limits<double>::infinity();
   plant.AddJoint(std::make_unique<MultiDofJointWithLimits<double>>(
       plant.world_frame(), body.body_frame(), -kInf, kInf));

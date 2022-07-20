@@ -296,6 +296,39 @@ class TestGeometrySceneGraph(unittest.TestCase):
                 1)
 
     @numpy_compare.check_all_types
+    def test_scene_graph_register_geometry(self, T):
+        SceneGraph = mut.SceneGraph_[T]
+        scene_graph = SceneGraph()
+        global_source = scene_graph.RegisterSource("anchored")
+        global_frame = scene_graph.world_frame_id()
+        context = scene_graph.CreateDefaultContext()
+        model_inspector = scene_graph.model_inspector()
+        query_object = scene_graph.get_query_output_port().Eval(context)
+        context_inspector = query_object.inspector()
+        self.assertEqual(model_inspector.num_geometries(), 0)
+        self.assertEqual(context_inspector.num_geometries(), 0)
+
+        # Register with context
+        geometry = mut.GeometryInstance(X_PG=RigidTransform_[float](),
+                                        shape=mut.Sphere(1.),
+                                        name="sphere1")
+        global_geometry = scene_graph.RegisterGeometry(
+            context=context, source_id=global_source, frame_id=global_frame,
+            geometry=geometry)
+        self.assertEqual(model_inspector.num_geometries(), 0)
+        self.assertEqual(context_inspector.num_geometries(), 1)
+
+        # Now register the geometry in scene_graph with a new geometry
+        new_geometry = mut.GeometryInstance(X_PG=RigidTransform_[float](),
+                                            shape=mut.Sphere(1.),
+                                            name="sphere1")
+        scene_graph.RegisterGeometry(
+            source_id=global_source, frame_id=global_frame,
+            geometry=new_geometry)
+        self.assertEqual(model_inspector.num_geometries(), 1)
+        self.assertEqual(context_inspector.num_geometries(), 1)
+
+    @numpy_compare.check_all_types
     def test_scene_graph_remove_geometry(self, T):
         SceneGraph = mut.SceneGraph_[T]
 
@@ -334,8 +367,11 @@ class TestGeometrySceneGraph(unittest.TestCase):
         self.assertEqual(obj.size(), 1)
         self.assertIsInstance(obj.value(id=frame_id), RigidTransform)
         self.assertTrue(obj.has_id(id=frame_id))
-        self.assertIsInstance(obj.frame_ids(), list)
-        self.assertIsInstance(obj.frame_ids()[0], mut.FrameId)
+        with catch_drake_warnings(expected_count=2):
+            self.assertIsInstance(obj.frame_ids(), list)
+            self.assertIsInstance(obj.frame_ids()[0], mut.FrameId)
+        self.assertIsInstance(obj.ids(), list)
+        self.assertIsInstance(obj.ids()[0], mut.FrameId)
         obj.clear()
         self.assertEqual(obj.size(), 0)
 

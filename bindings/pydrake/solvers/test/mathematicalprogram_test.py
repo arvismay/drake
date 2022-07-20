@@ -27,7 +27,7 @@ from pydrake.solvers.mathematicalprogram import (
     SolverId,
     SolverInterface
     )
-import pydrake.solvers.mathematicalprogram._testing as mp_testing
+import pydrake.solvers._testing as mp_testing
 import pydrake.symbolic as sym
 
 
@@ -219,16 +219,6 @@ class TestMathematicalProgram(unittest.TestCase):
         x_val_new = np.array([1, 2])
         result.set_x_val(x_val_new)
         np.testing.assert_array_equal(x_val_new, result.get_x_val())
-
-    def test_solution_result_deprecation(self):
-        # Remove after 2022-07-01.
-        result = MathematicalProgramResult()
-        with catch_drake_warnings(expected_count=1):
-            result.set_solution_result(
-                mp.SolutionResult.kInfeasible_Or_Unbounded)
-        self.assertEqual(
-            result.get_solution_result(),
-            mp.SolutionResult.kInfeasibleOrUnbounded)
 
     def test_str(self):
         qp = TestQP()
