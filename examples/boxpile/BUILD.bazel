@@ -20,7 +20,6 @@ drake_cc_binary(
         "//lcm",
         "//multibody/parsing",
         "//multibody/plant",
-        "//multibody/plant:compliant_contact_manager",
         "//multibody/contact_solvers",
         "//systems/analysis",
         "//systems/framework",

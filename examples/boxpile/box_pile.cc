@@ -59,6 +59,8 @@ DEFINE_double(mbp_dt, 0.02,
               "for the multibody plant modeled as a discrete system. "
               "Strictly positive.");
 
+DEFINE_string(contact_object_type, "ball", "Contact object types are ball, box, cylinder for now.");
+
 // Ball's initial spatial velocity.
 DEFINE_double(vx, 0,
               "Ball's initial translational velocity in the x-axis in m/s.");
@@ -99,44 +101,34 @@ using math::RigidTransformd;
 using math::RotationMatrixd;
 using Eigen::Vector3d;
 using drake::multibody::internal::CompliantContactManager;
-// using drake::multibody::contact_solvers::internal::ContactSolverResults;
-// using drake::multibody::contact_solvers::internal::MergeNormalAndTangent;
-// using drake::multibody::contact_solvers::internal::SapContactProblem;
-// using drake::multibody::contact_solvers::internal::SapFrictionConeConstraint;
-// using drake::multibody::contact_solvers::internal::SapSolver;
-// using drake::multibody::contact_solvers::internal::SapSolverParameters;
-// using drake::multibody::contact_solvers::internal::SapSolverResults;
-// using drake::multibody::contact_solvers::internal::SapSolverStatus;
-// using drake::multibody::internal::DiscreteContactPair;
 
 
-// void AddSphere(std::string name, double radius, double mass, double hydroelastic_modulus,
-//     double dissipation, const CoulombFriction<double>& surface_friction,
-//     double resolution_hint_factor, MultibodyPlant<double>* plant) {
 
-//     DRAKE_DEMAND(plant != nullptr);
+void AddSphere(std::string name, double radius, double mass, double hydroelastic_modulus,
+    double dissipation, const CoulombFriction<double>& surface_friction,
+    double resolution_hint_factor, MultibodyPlant<double>* plant) {
 
-//     // Add the ball. Let B be the ball's frame (at its center). The ball's
-//     // center of mass Bcm is coincident with Bo.
-//     const Vector3<double> p_BoBcm = Vector3<double>::Zero();
-//     const RigidBody<double>& ball = plant->AddRigidBody(
-//         name.c_str(), SpatialInertia<double>{mass, p_BoBcm, UnitInertia<double>::SolidSphere(radius)});
+    DRAKE_DEMAND(plant != nullptr);
 
-//     // Set up mechanical properties of the ball.
-//     geometry::ProximityProperties ball_props;
-//     // ball_props.AddProperty(geometry::internal::kMaterialGroup,
-//     //                   "dissipation_time_constant",
-//     //                   0.05);
-//     AddContactMaterial(dissipation, {} /* point stiffness */, 
-//                     surface_friction, &ball_props);
-//     AddCompliantHydroelasticProperties(radius * resolution_hint_factor, 
-//                                     hydroelastic_modulus, &ball_props);
-//     plant->RegisterCollisionGeometry(ball, RigidTransformd::Identity(), 
-//                                 Sphere(radius), "collision", std::move(ball_props));
-//     const Vector4<double> orange(1.0, 0.55, 0.0, 0.2);
-//     plant->RegisterVisualGeometry(ball, RigidTransformd::Identity(),
-//                                 Sphere(radius), "visual", orange);
-// }
+    // Add the ball. Let B be the ball's frame (at its center). The ball's
+    // center of mass Bcm is coincident with Bo.
+    const Vector3<double> p_BoBcm = Vector3<double>::Zero();
+    const RigidBody<double>& ball = plant->AddRigidBody(
+        name.c_str(), SpatialInertia<double>{mass, p_BoBcm, UnitInertia<double>::SolidSphere(radius)});
+
+    // Set up mechanical properties of the ball.
+    geometry::ProximityProperties ball_props;
+
+    AddContactMaterial(dissipation, {} /* point stiffness */, 
+                    surface_friction, &ball_props);
+    AddCompliantHydroelasticProperties(radius * resolution_hint_factor, 
+                                    hydroelastic_modulus, &ball_props);
+    plant->RegisterCollisionGeometry(ball, RigidTransformd::Identity(), 
+                                Sphere(radius), "collision", std::move(ball_props));
+    const Vector4<double> orange(1.0, 0.55, 0.0, 0.2);
+    plant->RegisterVisualGeometry(ball, RigidTransformd::Identity(),
+                                Sphere(radius), "visual", orange);
+}
 
 void AddBox(std::string name, double radius, double mass, double hydroelastic_modulus,
     double dissipation, const CoulombFriction<double>& surface_friction,
@@ -153,9 +145,6 @@ void AddBox(std::string name, double radius, double mass, double hydroelastic_mo
     // Set up mechanical properties of the box.
     geometry::ProximityProperties box_props;
     
-    // box_props.AddProperty(geometry::internal::kMaterialGroup,
-    //                   "dissipation_time_constant",
-    //                   0.05);
     AddContactMaterial(dissipation, {} /* point stiffness */, 
                     surface_friction, &box_props);
     AddCompliantHydroelasticProperties(radius * resolution_hint_factor, 
@@ -167,34 +156,31 @@ void AddBox(std::string name, double radius, double mass, double hydroelastic_mo
                                 Box(3*radius, 3*radius, radius), "visual", orange);
 }
 
-// void AddCylinder(std::string name, double radius, double mass, double hydroelastic_modulus,
-//     double dissipation, const CoulombFriction<double>& surface_friction,
-//     double resolution_hint_factor, MultibodyPlant<double>* plant) {
+void AddCylinder(std::string name, double radius, double mass, double hydroelastic_modulus,
+    double dissipation, const CoulombFriction<double>& surface_friction,
+    double resolution_hint_factor, MultibodyPlant<double>* plant) {
 
-//     DRAKE_DEMAND(plant != nullptr);
+    DRAKE_DEMAND(plant != nullptr);
 
-//     // Add the box. Let B be the box's frame (at its center). The ball's
-//     // center of mass Bcm is coincident with Bo.
-//     const Vector3<double> p_BoBcm = Vector3<double>::Zero();
-//     const RigidBody<double>& box = plant->AddRigidBody(
-//         name.c_str(), SpatialInertia<double>{mass, p_BoBcm, UnitInertia<double>::SolidCylinder(radius, 3*radius)});
+    // Add the box. Let B be the box's frame (at its center). The ball's
+    // center of mass Bcm is coincident with Bo.
+    const Vector3<double> p_BoBcm = Vector3<double>::Zero();
+    const RigidBody<double>& box = plant->AddRigidBody(
+        name.c_str(), SpatialInertia<double>{mass, p_BoBcm, UnitInertia<double>::SolidCylinder(radius, 3*radius)});
 
-//     // Set up mechanical properties of the box.
-//     geometry::ProximityProperties box_props;
+    // Set up mechanical properties of the box.
+    geometry::ProximityProperties box_props;
     
-//     // box_props.AddProperty(geometry::internal::kMaterialGroup,
-//     //                   "dissipation_time_constant",
-//     //                   0.05);
-//     AddContactMaterial(dissipation, {} /* point stiffness */, 
-//                     surface_friction, &box_props);
-//     AddCompliantHydroelasticProperties(radius * resolution_hint_factor, 
-//                                     hydroelastic_modulus, &box_props);
-//     plant->RegisterCollisionGeometry(box, RigidTransformd::Identity(), 
-//                                 Cylinder(radius, 3*radius), "collision", std::move(box_props));
-//     const Vector4<double> orange(1.0, 0.55, 0.0, 0.2);
-//     plant->RegisterVisualGeometry(box, RigidTransformd::Identity(),
-//                                 Cylinder(radius, 3*radius), "visual", orange);
-// }
+    AddContactMaterial(dissipation, {} /* point stiffness */, 
+                    surface_friction, &box_props);
+    AddCompliantHydroelasticProperties(radius * resolution_hint_factor, 
+                                    hydroelastic_modulus, &box_props);
+    plant->RegisterCollisionGeometry(box, RigidTransformd::Identity(), 
+                                Cylinder(radius, 3*radius), "collision", std::move(box_props));
+    const Vector4<double> orange(1.0, 0.55, 0.0, 0.2);
+    plant->RegisterVisualGeometry(box, RigidTransformd::Identity(),
+                                Cylinder(radius, 3*radius), "visual", orange);
+}
 
 int do_main() {
     systems::DiagramBuilder<double> builder;
@@ -217,41 +203,39 @@ int do_main() {
     for(int i = 0; i < FLAGS_gx * FLAGS_gy; i++) {
         for(int j=0; j<FLAGS_gz; j++) {
             std::string name = "Obj"+std::to_string(bodyidx);
-                
-                AddBox( name, radius, mass, FLAGS_hydroelastic_modulus, FLAGS_dissipation,
-                CoulombFriction<double>{
-                    // static friction (unused in discrete systems)
-                    FLAGS_friction_coefficient,
-                    // dynamic friction
-                    FLAGS_friction_coefficient},
-                FLAGS_resolution_hint_factor, &plant);
+                if(FLAGS_contact_object_type == "box"){
+                    AddBox( name, radius, mass, FLAGS_hydroelastic_modulus, FLAGS_dissipation,
+                    CoulombFriction<double>{
+                        // static friction (unused in discrete systems)
+                        FLAGS_friction_coefficient,
+                        // dynamic friction
+                        FLAGS_friction_coefficient},
+                    FLAGS_resolution_hint_factor, &plant);
+                }
 
-                // AddCylinder( name, radius, mass, FLAGS_hydroelastic_modulus, FLAGS_dissipation,
-                // CoulombFriction<double>{
-                //     // static friction (unused in discrete systems)
-                //     FLAGS_friction_coefficient,
-                //     // dynamic friction
-                //     FLAGS_friction_coefficient},
-                // FLAGS_resolution_hint_factor, &plant);
-          
-                // AddSphere( name, radius, mass, FLAGS_hydroelastic_modulus, FLAGS_dissipation,
-                // CoulombFriction<double>{
-                //     // static friction (unused in discrete systems)
-                //     FLAGS_friction_coefficient,
-                //     // dynamic friction
-                //     FLAGS_friction_coefficient},
-                // FLAGS_resolution_hint_factor, &plant);
+                if(FLAGS_contact_object_type == "cylinder"){
+                    AddCylinder( name, radius, mass, FLAGS_hydroelastic_modulus, FLAGS_dissipation,
+                    CoulombFriction<double>{
+                        // static friction (unused in discrete systems)
+                        FLAGS_friction_coefficient,
+                        // dynamic friction
+                        FLAGS_friction_coefficient},
+                    FLAGS_resolution_hint_factor, &plant);
+                }
+
+                if(FLAGS_contact_object_type == "ball"){
+                    AddSphere( name, radius, mass, FLAGS_hydroelastic_modulus, FLAGS_dissipation,
+                    CoulombFriction<double>{
+                        // static friction (unused in discrete systems)
+                        FLAGS_friction_coefficient,
+                        // dynamic friction
+                        FLAGS_friction_coefficient},
+                    FLAGS_resolution_hint_factor, &plant);
+                }
             
             bodyidx ++;
         }
     }
-
-    
-    // std::string floor_file_name = FindResourceOrThrow("drake/examples/boxpile/models/floor.sdf");
-    // parser.AddModelFromFile(floor_file_name);
-    // plant.WeldFrames(plant.world_frame(), plant.GetFrameByName("Floor"),
-    //                 RigidTransformd::Identity());
-    // // End add floor
 
     // Add bin
     std::string bin_file_name = FindResourceOrThrow("drake/examples/boxpile/models/bin.sdf");
@@ -267,13 +251,12 @@ int do_main() {
 
 
     // //---------------------------------------- Enable SAP solver
-    //const ConvexSolverBase<double>* solver{nullptr};
-    //CompliantContactManager<double>* manager{nullptr};
     auto owned_manager = std::make_unique<CompliantContactManager<double>>();
     CompliantContactManager<double>* manager = owned_manager.get();
     plant.SetDiscreteUpdateManager(std::move(owned_manager));
     drake::multibody::contact_solvers::internal::SapSolverParameters ssp;
-    ssp.ls_max_iterations = 300;
+    ssp.exact_line_search.max_iterations = 100;
+    // ssp.line_search_type = drake::multibody::contact_solvers::internal::SapSolverParameters::kBackTracking;
     manager->set_sap_solver_parameters(ssp);
 
     // //----------------------------------------
@@ -314,11 +297,22 @@ int do_main() {
     std::cout<<"Actual rtr: "<<rtr<<std::endl;
 
     std::ofstream myfile;
-    std::string fname = "/Users/modivism/Desktop/benchmark_data/box/"+FLAGS_contact_model+"/Obj-"+std::to_string(FLAGS_gx)+"-"+std::to_string(FLAGS_gy)+"-"+std::to_string(FLAGS_gz)+"-"+FLAGS_contact_model+"-"+std::to_string(FLAGS_resolution_hint_factor)+"-"+std::to_string(FLAGS_hydroelastic_modulus)+"-"+std::to_string(FLAGS_mbp_dt)+".txt";
+    std::string fname;
+    if(FLAGS_contact_object_type == "box"){
+        fname = "/Users/modivism/Desktop/benchmark_data/box/"+FLAGS_contact_model+"/Obj-"+std::to_string(FLAGS_gx)+"-"+std::to_string(FLAGS_gy)+"-"+std::to_string(FLAGS_gz)+"-"+FLAGS_contact_model+"-"+std::to_string(FLAGS_resolution_hint_factor)+"-"+std::to_string(FLAGS_hydroelastic_modulus)+"-"+std::to_string(FLAGS_mbp_dt)+".txt";
+    }else if(FLAGS_contact_object_type == "cylinder"){
+        fname = "/Users/modivism/Desktop/benchmark_data/cylinder/"+FLAGS_contact_model+"/Obj-"+std::to_string(FLAGS_gx)+"-"+std::to_string(FLAGS_gy)+"-"+std::to_string(FLAGS_gz)+"-"+FLAGS_contact_model+"-"+std::to_string(FLAGS_resolution_hint_factor)+"-"+std::to_string(FLAGS_hydroelastic_modulus)+"-"+std::to_string(FLAGS_mbp_dt)+".txt";
+    }else if(FLAGS_contact_object_type == "ball"){
+        fname = "/Users/modivism/Desktop/benchmark_data/ball/"+FLAGS_contact_model+"/Obj-"+std::to_string(FLAGS_gx)+"-"+std::to_string(FLAGS_gy)+"-"+std::to_string(FLAGS_gz)+"-"+FLAGS_contact_model+"-"+std::to_string(FLAGS_resolution_hint_factor)+"-"+std::to_string(FLAGS_hydroelastic_modulus)+"-"+std::to_string(FLAGS_mbp_dt)+".txt";
+    }else{
+        std::cout<< "ERROR unsupported contact_object_type"<<std::endl;
+        exit(0);
+    }
+    
     myfile.open (fname);
     if (myfile.is_open()){
-    myfile << std::to_string(rtr);
-    myfile.close();
+        myfile << std::to_string(rtr);
+        myfile.close();
     }
     else{
         std::cout<<"uh oh"<<std::endl;
